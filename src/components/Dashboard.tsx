@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useStock } from '@/contexts/StockContext';
@@ -32,13 +31,13 @@ const Dashboard: React.FC = () => {
     { name: 'Fri', sp500: 4582, nasdaq: 15690, dow: 38563 },
   ];
 
-  // Sector performance data
+  // Sector performance data - Modified to include color property
   const sectorPerformance = [
-    { name: 'Technology', value: 4.2 },
-    { name: 'Healthcare', value: 1.8 },
-    { name: 'Financials', value: 0.9 },
-    { name: 'Consumer', value: -0.5 },
-    { name: 'Energy', value: -1.2 },
+    { name: 'Technology', value: 4.2, color: "#00FF99" },
+    { name: 'Healthcare', value: 1.8, color: "#00FF99" },
+    { name: 'Financials', value: 0.9, color: "#00FF99" },
+    { name: 'Consumer', value: -0.5, color: "#ff4d4f" },
+    { name: 'Energy', value: -1.2, color: "#ff4d4f" },
   ];
 
   return (
@@ -189,10 +188,19 @@ const Dashboard: React.FC = () => {
                   <Tooltip />
                   <Bar 
                     dataKey="value" 
-                    fill={(data: any) => data.value >= 0 ? "#00FF99" : "#ff4d4f"}
+                    fill="#8884d8"
+                    stroke="#8884d8"
                     radius={[4, 4, 0, 0]}
                     name="Performance (%)"
-                  />
+                  >
+                    {sectorPerformance.map((entry, index) => (
+                      <Bar 
+                        key={`cell-${index}`}
+                        dataKey="value"
+                        fill={entry.value >= 0 ? "#00FF99" : "#ff4d4f"}
+                      />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
