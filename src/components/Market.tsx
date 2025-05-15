@@ -6,9 +6,28 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ThumbsUp, ThumbsDown, Bookmark, BookmarkCheck } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
 
 const Market: React.FC = () => {
   const { news, likeNews, saveNews } = useStock();
+
+  // Handle liking a news article
+  const handleLikeNews = (id: string) => {
+    likeNews(id);
+    toast({
+      title: "Update",
+      description: "Your preference has been saved",
+    });
+  };
+
+  // Handle saving a news article
+  const handleSaveNews = (id: string) => {
+    saveNews(id);
+    toast({
+      title: "Update",
+      description: "News article has been saved",
+    });
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -61,7 +80,7 @@ const Market: React.FC = () => {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => likeNews(item.id)}
+                        onClick={() => handleLikeNews(item.id)}
                         className={item.liked ? 'text-primary' : ''}
                       >
                         <ThumbsUp className="h-4 w-4 mr-1" />
@@ -75,7 +94,7 @@ const Market: React.FC = () => {
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      onClick={() => saveNews(item.id)}
+                      onClick={() => handleSaveNews(item.id)}
                     >
                       {item.saved ? (
                         <BookmarkCheck className="h-4 w-4 mr-1" />

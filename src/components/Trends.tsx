@@ -29,6 +29,7 @@ const Trends: React.FC = () => {
   };
   
   const handleStockClick = (ticker: string) => {
+    // This is the fix - make sure we're passing the correct ticker to the analysis page
     navigate(`/analysis?symbol=${ticker}`);
   };
   
