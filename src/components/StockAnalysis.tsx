@@ -1,540 +1,357 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useStock } from '@/contexts/StockContext';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Search, FileDown, Save, PlusCircle } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
+import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 
-const StockAnalysis: React.FC = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { getStockData, searchStocks, saveStock } = useStock();
-  
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [showResults, setShowResults] = useState(false);
-  const [selectedStocks, setSelectedStocks] = useState<string[]>([]);
-  const [chartType, setChartType] = useState('line');
-  const [timeFrame, setTimeFrame] = useState('1Y');
-  
-  // Extract symbol from URL query parameter
-  useEffect(() => {
-    const queryParams = new URLSearchParams(location.search);
-    const symbol = queryParams.get('symbol');
-    
-    console.log('Symbol from URL:', symbol);
-    
-    if (symbol) {
-      // Clear any existing selections before adding the new stock
-      setSelectedStocks([]);
-      
-      // Add a slight delay to ensure state is updated
-      setTimeout(() => {
-        addStockToAnalysis(symbol);
-      }, 100);
-    } else if (selectedStocks.length === 0) {
-      // Default stock for analysis
-      addStockToAnalysis('AAPL');
-    }
-  }, [location.search]);
-  
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    
-    if (query.length >= 1) {
-      const results = searchStocks(query);
-      setSearchResults(results);
-      setShowResults(true);
-    } else {
-      setSearchResults([]);
-      setShowResults(false);
-    }
-  };
-  
-  const addStockToAnalysis = (ticker: string) => {
-    // Validate that we can get data for this stock
-    console.log('Adding stock to analysis:', ticker);
-    const stockData = getStockData(ticker);
-    
-    if (!stockData) {
-      toast({
-        title: "Stock not found",
-        description: `Could not find data for ticker: ${ticker}`,
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!selectedStocks.includes(ticker)) {
-      setSelectedStocks(prev => [...prev, ticker]);
-      toast({
-        title: "Stock Added",
-        description: `${stockData.name} (${ticker}) has been added to analysis`,
-      });
-      
-      console.log('Updated selected stocks:', [...selectedStocks, ticker]);
-    }
-    setSearchQuery('');
-    setSearchResults([]);
-    setShowResults(false);
-  };
-  
-  const addStockBySearch = () => {
-    if (searchQuery.trim() !== '') {
-      addStockToAnalysis(searchQuery.trim().toUpperCase());
-    }
-  };
-  
-  const removeStockFromAnalysis = (ticker: string) => {
-    setSelectedStocks(selectedStocks.filter(stock => stock !== ticker));
-  };
-  
-  const handleSaveStock = (ticker: string) => {
-    saveStock(ticker);
-  };
-  
-  const getFilteredData = (ticker: string) => {
-    const stock = getStockData(ticker);
-    if (!stock || !stock.history) return [];
-    
-    const history = stock.history;
-    let filteredData;
-    
-    switch(timeFrame) {
-      case '1W':
-        filteredData = history.slice(-7);
-        break;
-      case '1M':
-        filteredData = history.slice(-30);
-        break;
-      case '6M':
-        filteredData = history.slice(-180);
-        break;
-      case '1Y':
-        filteredData = history;
-        break;
-      default:
-        filteredData = history;
-    }
-    
-    return filteredData.map(item => ({
-      date: item.date,
-      [ticker]: item.close
-    }));
-  };
-  
-  const renderChart = () => {
-    if (selectedStocks.length === 0) return null;
-    
-    const firstStock = selectedStocks[0];
-    const chartData = getFilteredData(firstStock);
-    
-    // Merge data for multiple stocks
-    if (selectedStocks.length > 1) {
-      selectedStocks.slice(1).forEach(ticker => {
-        const stockData = getFilteredData(ticker);
-        stockData.forEach((item, index) => {
-          if (index < chartData.length) {
-            chartData[index][ticker] = item[ticker];
-          }
-        });
-      });
-    }
-    
-    const renderChartComponent = () => {
-      switch(chartType) {
-        case 'line':
-          return (
-            <LineChart data={chartData}>
-              <XAxis 
-                dataKey="date" 
-                tick={{ fontSize: 12 }} 
-                tickFormatter={(value) => {
-                  if (timeFrame === '1Y') {
-                    return value.substring(5, 7); // Just month
-                  }
-                  return value.substring(5); // Month-day
-                }}
-              />
-              <YAxis />
-              <Tooltip />
-              {selectedStocks.map((ticker, index) => (
-                <Line 
-                  key={ticker}
-                  type="monotone"
-                  dataKey={ticker}
-                  stroke={getStockColor(index)}
-                  strokeWidth={2}
-                  dot={false}
-                  name={ticker}
-                />
-              ))}
-            </LineChart>
-          );
-        case 'area':
-          return (
-            <AreaChart data={chartData}>
-              <XAxis 
-                dataKey="date" 
-                tick={{ fontSize: 12 }}
-                tickFormatter={(value) => {
-                  if (timeFrame === '1Y') {
-                    return value.substring(5, 7); // Just month
-                  }
-                  return value.substring(5); // Month-day
-                }}
-              />
-              <YAxis />
-              <Tooltip />
-              {selectedStocks.map((ticker, index) => (
-                <Area 
-                  key={ticker}
-                  type="monotone"
-                  dataKey={ticker}
-                  stroke={getStockColor(index)}
-                  fill={`${getStockColor(index)}33`}
-                  name={ticker}
-                />
-              ))}
-            </AreaChart>
-          );
-        case 'bar':
-          return (
-            <BarChart data={chartData}>
-              <XAxis 
-                dataKey="date" 
-                tick={{ fontSize: 12 }}
-                tickFormatter={(value) => {
-                  if (timeFrame === '1Y') {
-                    return value.substring(5, 7); // Just month
-                  }
-                  return value.substring(5); // Month-day
-                }}
-              />
-              <YAxis />
-              <Tooltip />
-              {selectedStocks.map((ticker, index) => (
-                <Bar 
-                  key={ticker}
-                  dataKey={ticker}
-                  fill={getStockColor(index)}
-                  name={ticker}
-                />
-              ))}
-            </BarChart>
-          );
-        default:
-          return (
-            <LineChart data={chartData}>
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              {selectedStocks.map((ticker, index) => (
-                <Line 
-                  key={ticker}
-                  type="monotone"
-                  dataKey={ticker}
-                  stroke={getStockColor(index)}
-                  name={ticker}
-                />
-              ))}
-            </LineChart>
-          );
-      }
-    };
-    
-    return (
-      <ResponsiveContainer width="100%" height="100%">
-        {renderChartComponent()}
-      </ResponsiveContainer>
-    );
-  };
-  
-  // Get color for each stock
-  const getStockColor = (index: number) => {
-    const colors = ['#00AAFF', '#00FF99', '#9b87f5', '#ff4d4f', '#faad14'];
-    return colors[index % colors.length];
-  };
-  
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Stock Analysis Engine</h1>
-      
-      {/* Search and Add Stock */}
-      <Card className="mb-8 glass-card">
-        <CardHeader>
-          <CardTitle>Add Stock to Analysis</CardTitle>
-          <CardDescription>Search and add stocks to compare performance</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative w-full">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Search by company name or ticker symbol..."
-                  className="pl-9"
-                  value={searchQuery}
-                  onChange={handleSearch}
-                  onFocus={() => setShowResults(true)}
-                  onBlur={() => setTimeout(() => setShowResults(false), 200)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      addStockBySearch();
-                    }
-                  }}
-                />
-              </div>
-              
-              {showResults && searchResults.length > 0 && (
-                <div className="absolute z-10 mt-2 w-full rounded-md border bg-popover p-2 shadow-md">
-                  {searchResults.map((stock) => (
-                    <div
-                      key={stock.ticker}
-                      className="flex items-center justify-between p-2 hover:bg-accent rounded-md cursor-pointer"
-                      onMouseDown={() => addStockToAnalysis(stock.ticker)}
-                    >
-                      <div>
-                        <div className="font-medium">{stock.ticker}</div>
-                        <div className="text-sm text-muted-foreground">{stock.name}</div>
-                      </div>
-                      <div className={stock.change >= 0 ? "text-green-500" : "text-red-500"}>
-                        ${stock.price.toFixed(2)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            
-            <Button className="whitespace-nowrap" onClick={addStockBySearch}>
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Add Stock
-            </Button>
-          </div>
-          
-          {/* Selected Stocks Pills */}
-          <div className="flex flex-wrap gap-2 mt-4">
-            {selectedStocks.map((ticker, index) => {
-              const stock = getStockData(ticker);
-              if (!stock) return null;
-              
-              return (
-                <div 
-                  key={ticker} 
-                  className="flex items-center gap-2 py-1 px-3 rounded-full bg-primary/10 text-primary text-sm"
-                  style={{ borderColor: getStockColor(index) }}
-                >
-                  <span>{ticker}</span>
-                  <span className={stock.change >= 0 ? "text-green-500" : "text-red-500"}>
-                    {stock.change >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%
-                  </span>
-                  <button
-                    onClick={() => removeStockFromAnalysis(ticker)}
-                    className="ml-1 h-4 w-4 rounded-full hover:bg-primary/20 flex items-center justify-center"
-                  >
-                    ×
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-      
-      {selectedStocks.length > 0 ? (
-        <>
-          {/* Chart Controls */}
-          <div className="mb-4 flex flex-col sm:flex-row justify-between gap-4">
-            <div className="flex gap-2">
-              <Button
-                variant={chartType === 'line' ? 'default' : 'outline'} 
-                size="sm"
-                onClick={() => setChartType('line')}
-              >
-                Line
-              </Button>
-              <Button
-                variant={chartType === 'area' ? 'default' : 'outline'} 
-                size="sm"
-                onClick={() => setChartType('area')}
-              >
-                Area
-              </Button>
-              <Button
-                variant={chartType === 'bar' ? 'default' : 'outline'} 
-                size="sm"
-                onClick={() => setChartType('bar')}
-              >
-                Bar
-              </Button>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button
-                variant={timeFrame === '1W' ? 'default' : 'outline'} 
-                size="sm"
-                onClick={() => setTimeFrame('1W')}
-              >
-                1W
-              </Button>
-              <Button
-                variant={timeFrame === '1M' ? 'default' : 'outline'} 
-                size="sm"
-                onClick={() => setTimeFrame('1M')}
-              >
-                1M
-              </Button>
-              <Button
-                variant={timeFrame === '6M' ? 'default' : 'outline'} 
-                size="sm"
-                onClick={() => setTimeFrame('6M')}
-              >
-                6M
-              </Button>
-              <Button
-                variant={timeFrame === '1Y' ? 'default' : 'outline'} 
-                size="sm"
-                onClick={() => setTimeFrame('1Y')}
-              >
-                1Y
-              </Button>
-            </div>
-          </div>
-          
-          {/* Chart Card */}
-          <Card className="mb-8 glass-card">
-            <CardHeader>
-              <CardTitle>Stock Price Performance</CardTitle>
-              <CardDescription>
-                {timeFrame === '1W' ? 'Last Week' : 
-                 timeFrame === '1M' ? 'Last Month' : 
-                 timeFrame === '6M' ? 'Last 6 Months' : 
-                 'Last Year'} Performance
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[400px]">
-                {renderChart()}
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button variant="outline" size="sm">
-                <FileDown className="h-4 w-4 mr-2" />
-                Export Chart
-              </Button>
-              {selectedStocks.length === 1 && (
-                <Button size="sm" onClick={() => handleSaveStock(selectedStocks[0])}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save to Portfolio
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
-          
-          {/* Stock Details Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {selectedStocks.map((ticker, index) => {
-              const stock = getStockData(ticker);
-              if (!stock) return null;
-              
-              return (
-                <Card key={ticker} className="glass-card">
-                  <CardHeader style={{ borderColor: getStockColor(index) }}>
-                    <div className="flex justify-between items-center">
-                      <CardTitle>{stock.ticker}</CardTitle>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => handleSaveStock(ticker)}
-                      >
-                        <Save className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <CardDescription>{stock.name}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex justify-between mb-4">
-                      <div>
-                        <div className="text-2xl font-bold">${stock.price.toFixed(2)}</div>
-                        <div className={`${stock.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {stock.change >= 0 ? '+' : ''}{stock.change.toFixed(2)} ({stock.change >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%)
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm text-muted-foreground">Market Cap</div>
-                        <div>{stock.marketCap}</div>
-                      </div>
-                    </div>
-                    
-                    <Tabs defaultValue="overview">
-                      <TabsList className="grid grid-cols-2 mb-4">
-                        <TabsTrigger value="overview">Overview</TabsTrigger>
-                        <TabsTrigger value="stats">Key Stats</TabsTrigger>
-                      </TabsList>
-                      
-                      <TabsContent value="overview">
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Volume</span>
-                            <span className="font-medium">{stock.volume}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">P/E Ratio</span>
-                            <span className="font-medium">{stock.peRatio?.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">52 Week High</span>
-                            <span className="font-medium">${stock.yearHigh?.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">52 Week Low</span>
-                            <span className="font-medium">${stock.yearLow?.toFixed(2)}</span>
-                          </div>
-                        </div>
-                      </TabsContent>
-                      
-                      <TabsContent value="stats">
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Beta</span>
-                            <span className="font-medium">1.23</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Dividend Yield</span>
-                            <span className="font-medium">0.56%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">EPS</span>
-                            <span className="font-medium">$6.42</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Shares Outstanding</span>
-                            <span className="font-medium">14.2B</span>
-                          </div>
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </>
-      ) : (
-        <div className="py-12 text-center">
-          <h3 className="text-xl mb-4">No stocks selected for analysis</h3>
-          <p className="text-muted-foreground mb-6">Search for a stock to start analyzing its performance.</p>
-        </div>
-      )}
-    </div>
-  );
+const TIME_RANGES = {
+  '1W': 7,
+  '1M': 30,
+  '6M': 182,
+  '1Y': 365,
 };
 
-export default StockAnalysis;
+const chartColors = [
+  '#FF0000', // red
+  '#00BFFF', // deep sky blue
+  '#32CD32', // lime green
+  '#FFA500', // orange
+  '#9370DB', // medium purple
+  '#00CED1', // dark turquoise
+  '#FFC0CB', // pink
+];
+
+
+type StockSummary = {
+  symbol: string;
+  shortName?: string;
+  price?: number;
+  change?: number;
+  changePercent?: number;
+  marketCap?: number;
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
+  dividendYield?: number;
+  peRatio?: number;
+};
+
+export default function StockAnalysis() {
+  const [symbols, setSymbols] = useState<string[]>([]);
+  const [input, setInput] = useState('');
+  const [stockData, setStockData] = useState<Record<string, { date: string; price: number }[]>>({});
+  const [stockSummaries, setStockSummaries] = useState<Record<string, StockSummary>>({});
+  const [loading, setLoading] = useState(false);
+  const [timeRange, setTimeRange] = useState<'1W' | '1M' | '6M' | '1Y'>('1Y');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+        setSuggestions([]);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const STOCK_SYMBOLS = [
+    'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'META', 'NVDA',
+    'RELIANCE.NSE', 'TATAMOTORS.NSE', 'INFY.NSE', 'HDFCBANK.NSE', 'ICICIBANK.NSE',
+  ];
+
+  useEffect(() => {
+    if (!input) {
+      setSuggestions([]);
+      return;
+    }
+    const filtered = STOCK_SYMBOLS.filter(sym =>
+      sym.toLowerCase().startsWith(input.toLowerCase()) && !symbols.includes(sym)
+    ).slice(0, 10);
+    setSuggestions(filtered);
+  }, [input, symbols]);
+
+  const parseTimeSeries = (timeSeries: Record<string, any>) => {
+    return Object.entries(timeSeries)
+      .map(([date, values]) => ({
+        date,
+        price: parseFloat(values['4. close']),
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  };
+
+  const filterByTimeRange = (data: { date: string; price: number }[], days: number) => {
+    if (!data.length) return [];
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    return data.filter(d => new Date(d.date) >= cutoff);
+  };
+
+  const combineChartData = (symbols: string[], stockData: Record<string, { date: string; price: number }[]>, days: number) => {
+    if (symbols.length === 0) return [];
+
+    const allDatesSet = new Set<string>();
+    symbols.forEach(sym => {
+      const filtered = filterByTimeRange(stockData[sym] || [], days);
+      filtered.forEach(d => allDatesSet.add(d.date));
+    });
+
+    if (allDatesSet.size === 0) return [];
+
+    const allDates = Array.from(allDatesSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+    return allDates.map(date => {
+      const row: any = { date };
+      symbols.forEach(sym => {
+        const filtered = filterByTimeRange(stockData[sym] || [], days);
+        const point = filtered.find(d => d.date === date);
+        row[sym] = point ? point.price : null;
+      });
+      return row;
+    });
+  };
+
+  const fetchStockData = async (symbol: string) => {
+    try {
+      const response = await axios.get(`http://localhost:4000/api/stock?symbol=${symbol}`);
+      const timeSeries = response.data?.['Time Series (Daily)'];
+      if (!timeSeries) throw new Error(`No data for ${symbol}`);
+
+      return parseTimeSeries(timeSeries);
+    } catch (error) {
+      console.error(`Error fetching ${symbol}:`, error);
+      return [];
+    }
+  };
+
+  const fetchStockSummary = async (symbol: string) => {
+    try {
+      const response = await axios.get(`http://localhost:4000/api/stock/summary?symbol=${symbol}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching summary for ${symbol}:`, error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    if (symbols.length === 0) {
+      setStockData({});
+      setStockSummaries({});
+      return;
+    }
+    setLoading(true);
+
+    Promise.all(symbols.map(sym => fetchStockData(sym))).then(results => {
+      const dataMap: Record<string, any[]> = {};
+      symbols.forEach((sym, i) => {
+        dataMap[sym] = results[i];
+      });
+      setStockData(dataMap);
+      setLoading(false);
+    });
+
+    Promise.all(symbols.map(sym => fetchStockSummary(sym))).then(results => {
+      const summaryMap: Record<string, StockSummary> = {};
+      symbols.forEach((sym, i) => {
+        if (results[i]) summaryMap[sym] = results[i];
+      });
+      setStockSummaries(summaryMap);
+    });
+  }, [symbols]);
+
+  const handleAddSymbol = (symbol?: string) => {
+    const sym = (symbol ?? input).trim().toUpperCase();
+    if (sym && !symbols.includes(sym)) {
+      setSymbols(prev => [...prev, sym]);
+      setInput('');
+      setSuggestions([]);
+    }
+  };
+
+  const handleRemoveSymbol = (symbol: string) => {
+    setSymbols(prev => prev.filter(s => s !== symbol));
+    setStockData(prev => {
+      const copy = { ...prev };
+      delete copy[symbol];
+      return copy;
+    });
+    setStockSummaries(prev => {
+      const copy = { ...prev };
+      delete copy[symbol];
+      return copy;
+    });
+  };
+
+  const saveToPortfolio = (symbol: string) => {
+    const existing = JSON.parse(localStorage.getItem('portfolio') || '[]');
+    if (!existing.includes(symbol)) {
+      localStorage.setItem('portfolio', JSON.stringify([...existing, symbol]));
+      alert(`${symbol} saved to portfolio!`);
+    } else {
+      alert(`${symbol} is already in portfolio`);
+    }
+  };
+
+  const StockReportCard = ({ summary }: { summary: StockSummary }) => {
+    if (!summary) return null;
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 m-3 max-w-sm flex flex-col">
+        <h2 className="text-2xl font-semibold mb-2">{summary.shortName ?? summary.symbol} ({summary.symbol})</h2>
+        <p className="text-xl font-bold">
+          ${summary.price?.toFixed(2)}{' '}
+          <span className={`font-semibold ${summary.change && summary.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+            {summary.change && (summary.change >= 0 ? '▲' : '▼')} {summary.change?.toFixed(2)} ({summary.changePercent?.toFixed(2)}%)
+          </span>
+        </p>
+        <div className="mt-4 text-sm space-y-1 text-gray-600 dark:text-gray-300">
+          {summary.marketCap && <p>Market Cap: ${(summary.marketCap / 1e9).toFixed(2)} B</p>}
+          {summary.fiftyTwoWeekHigh && <p>52 Week High: ${summary.fiftyTwoWeekHigh.toFixed(2)}</p>}
+          {summary.fiftyTwoWeekLow && <p>52 Week Low: ${summary.fiftyTwoWeekLow.toFixed(2)}</p>}
+          {summary.dividendYield && <p>Dividend Yield: {(summary.dividendYield * 100).toFixed(2)}%</p>}
+          {summary.peRatio && <p>P/E Ratio: {summary.peRatio.toFixed(2)}</p>}
+        </div>
+        <button
+          className="mt-auto bg-blue-600 text-white rounded px-4 py-2 hover:bg-blue-700 transition"
+          onClick={() => saveToPortfolio(summary.symbol)}
+        >
+          Save to Portfolio
+        </button>
+      </div>
+    );
+  };
+
+  // DEBUG LOGS: Remove these after troubleshooting
+  console.log('Symbols:', symbols);
+  console.log('Stock Data:', stockData);
+  console.log('Combined Chart Data:', combineChartData(symbols, stockData, TIME_RANGES[timeRange]));
+  console.log('Stock Summaries:', stockSummaries);
+
+  return (
+    <div className="p-6 bg-white dark:bg-gray-900 min-h-screen text-black dark:text-white transition-colors max-w-7xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6">Stock Price Performance</h1>
+
+      <div className="relative w-72 mb-4">
+        <input
+          type="text"
+          placeholder="Enter stock symbol (e.g. MSFT or RELIANCE.NSE)"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') handleAddSymbol();
+          }}
+          className="w-full border rounded-md px-4 py-2 dark:bg-gray-800 dark:text-white"
+          autoComplete="off"
+        />
+        {suggestions.length > 0 && (
+          <div
+            ref={suggestionsRef}
+            className="absolute z-10 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md mt-1 w-full max-h-48 overflow-auto shadow-lg"
+          >
+            {suggestions.map(sug => (
+              <div
+                key={sug}
+                onClick={() => handleAddSymbol(sug)}
+                className="cursor-pointer px-4 py-2 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-500"
+              >
+                {sug}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-4">
+        {symbols.map(sym => (
+          <div
+            key={sym}
+            className="bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2"
+          >
+            {sym}
+            <button
+              onClick={() => handleRemoveSymbol(sym)}
+              className="text-red-500 font-bold hover:text-red-700"
+              title={`Remove ${sym}`}
+            >
+              &times;
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-3 mb-4">
+        {Object.keys(TIME_RANGES).map(range => (
+          <button
+            key={range}
+            onClick={() => setTimeRange(range as keyof typeof TIME_RANGES)}
+            className={`px-3 py-1 rounded border ${
+              timeRange === range ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800'
+            }`}
+          >
+            {range}
+          </button>
+        ))}
+      </div>
+
+      <div className="w-full h-[450px] bg-gray-50 dark:bg-gray-800 rounded-lg shadow p-4">
+        {loading ? (
+          <p className="text-center">Loading stock data...</p>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={combineChartData(symbols, stockData, TIME_RANGES[timeRange])}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#88888833" />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: '#888', fontSize: 12 }}
+                tickLine={false}
+                axisLine={{ stroke: '#888' }}
+                minTickGap={20}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tick={{ fill: '#888', fontSize: 12 }}
+                tickLine={false}
+                axisLine={{ stroke: '#888' }}
+                domain={['auto', 'auto']}
+              />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#222', borderRadius: 8, border: 'none' }}
+                labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                itemStyle={{ color: '#fff' }}
+              />
+              <Legend wrapperStyle={{ paddingTop: 10 }} />
+              {symbols.map((symbol, idx) => (
+                <Line
+                  key={symbol}
+                  type="monotone"
+                  dataKey={symbol}
+                  stroke={chartColors[idx % chartColors.length]}
+                  strokeWidth={3}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                  animationDuration={800}
+                  connectNulls
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="mt-8 flex flex-wrap justify-center">
+        {symbols.map(sym => (
+          <StockReportCard key={sym} summary={stockSummaries[sym]} />
+        ))}
+      </div>
+
+      <div className="mt-6">
+        <button
+          onClick={() => alert('Export functionality coming soon!')}
+          className="bg-black dark:bg-white dark:text-black text-white px-4 py-2 rounded"
+        >
+          Export Chart
+        </button>
+      </div>
+    </div>
+  );
+}
