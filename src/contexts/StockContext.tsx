@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 
 // Mock stock data
 const MOCK_STOCK_DATA = {
@@ -299,26 +299,37 @@ export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     localStorage.setItem('stockay_portfolio', JSON.stringify(portfolio));
   }, [portfolio]);
   
-  const getStockData = (ticker: string) => {
+  const getStockData = useCallback((ticker: string) => {
+    console.log('Getting stock data for:', ticker);
+    
+    if (!ticker) {
+      console.log('No ticker provided');
+      return null;
+    }
+    
     // First try to get from main stockData
     if (stockData[ticker]) {
+      console.log('Found in main stock data');
       return stockData[ticker];
     }
     
     // If not found, check Indian stocks
     const indianStock = INDIAN_STOCKS.find(stock => stock.ticker === ticker);
     if (indianStock) {
+      console.log('Found in Indian stocks');
       return indianStock;
     }
     
     // If not found, check international stocks
     const internationalStock = INTERNATIONAL_STOCKS.find(stock => stock.ticker === ticker);
     if (internationalStock) {
+      console.log('Found in international stocks');
       return internationalStock;
     }
     
     // If not found anywhere, generate a basic placeholder stock
     if (ticker && ticker.length > 0) {
+      console.log('Generating mock data for:', ticker);
       // Generate mock data for stocks not in our predefined lists
       const generatedStock: Stock = {
         name: `${ticker} Corporation`,
@@ -347,7 +358,7 @@ export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
     
     return null;
-  };
+  }, [stockData]);
   
   const searchStocks = (query: string) => {
     if (!query) return [];

@@ -26,8 +26,16 @@ const StockAnalysis: React.FC = () => {
     const queryParams = new URLSearchParams(location.search);
     const symbol = queryParams.get('symbol');
     
+    console.log('Symbol from URL:', symbol);
+    
     if (symbol) {
-      addStockToAnalysis(symbol);
+      // Clear any existing selections before adding the new stock
+      setSelectedStocks([]);
+      
+      // Add a slight delay to ensure state is updated
+      setTimeout(() => {
+        addStockToAnalysis(symbol);
+      }, 100);
     } else if (selectedStocks.length === 0) {
       // Default stock for analysis
       addStockToAnalysis('AAPL');
@@ -50,6 +58,7 @@ const StockAnalysis: React.FC = () => {
   
   const addStockToAnalysis = (ticker: string) => {
     // Validate that we can get data for this stock
+    console.log('Adding stock to analysis:', ticker);
     const stockData = getStockData(ticker);
     
     if (!stockData) {
@@ -67,15 +76,12 @@ const StockAnalysis: React.FC = () => {
         title: "Stock Added",
         description: `${stockData.name} (${ticker}) has been added to analysis`,
       });
+      
+      console.log('Updated selected stocks:', [...selectedStocks, ticker]);
     }
     setSearchQuery('');
     setSearchResults([]);
     setShowResults(false);
-    
-    // Update URL with the new symbol
-    if (selectedStocks.length === 0) {
-      navigate(`/analysis?symbol=${ticker}`);
-    }
   };
   
   const addStockBySearch = () => {

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { TrendingUp } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
 
 const Trends: React.FC = () => {
   const { trendingStocks } = useStock();
@@ -29,8 +30,13 @@ const Trends: React.FC = () => {
   };
   
   const handleStockClick = (ticker: string) => {
-    // This is the fix - make sure we're passing the correct ticker to the analysis page
+    console.log('Navigating to stock:', ticker);
+    // Make sure we're passing the correct ticker to the analysis page
     navigate(`/analysis?symbol=${ticker}`);
+    toast({
+      title: "Loading stock analysis",
+      description: `Viewing analysis for ${ticker}`
+    });
   };
   
   const renderStockCards = (stocks: any[]) => {
@@ -43,7 +49,7 @@ const Trends: React.FC = () => {
             return (
               <Card 
                 key={`${stock.ticker}-${index}`}
-                className="w-72 glass-card transition-all duration-300 stock-card"
+                className="w-72 glass-card transition-all duration-300 stock-card cursor-pointer"
                 onClick={() => handleStockClick(stock.ticker)}
               >
                 <CardHeader>
@@ -76,7 +82,10 @@ const Trends: React.FC = () => {
                 </CardContent>
                 
                 <CardFooter>
-                  <Button variant="ghost" size="sm" className="w-full">View Analysis</Button>
+                  <Button variant="ghost" size="sm" className="w-full" onClick={(e) => {
+                    e.stopPropagation(); // Prevent triggering the card's onClick
+                    handleStockClick(stock.ticker);
+                  }}>View Analysis</Button>
                 </CardFooter>
               </Card>
             );
