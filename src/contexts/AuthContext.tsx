@@ -35,13 +35,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const { toast } = useToast();
 
-  // Check if user is already logged in
+  // Check if user is already logged in - with improved session persistence
   useEffect(() => {
-    const storedUser = localStorage.getItem('stockay_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const checkAuthStatus = () => {
+      const storedUser = localStorage.getItem('stockay_user');
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (error) {
+          // Handle corrupted localStorage data
+          localStorage.removeItem('stockay_user');
+        }
+      }
+      setLoading(false);
+    };
+    
+    checkAuthStatus();
   }, []);
 
   // Mock login function - in a real app, this would call an API
@@ -58,7 +67,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         email: email
       };
       
-      // Store user in localStorage (would be a JWT in a real app)
+      // Store user in localStorage with proper serialization
       localStorage.setItem('stockay_user', JSON.stringify(mockUser));
       setUser(mockUser);
       
