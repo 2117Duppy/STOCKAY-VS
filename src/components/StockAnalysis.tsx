@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStock } from '@/contexts/StockContext';
@@ -8,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Search, FileDown, Save, PlusCircle } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
 
 const StockAnalysis: React.FC = () => {
   const location = useLocation();
@@ -38,7 +38,7 @@ const StockAnalysis: React.FC = () => {
     const query = e.target.value;
     setSearchQuery(query);
     
-    if (query.length >= 2) {
+    if (query.length >= 1) {
       const results = searchStocks(query);
       setSearchResults(results);
       setShowResults(true);
@@ -49,8 +49,24 @@ const StockAnalysis: React.FC = () => {
   };
   
   const addStockToAnalysis = (ticker: string) => {
+    // Validate that we can get data for this stock
+    const stockData = getStockData(ticker);
+    
+    if (!stockData) {
+      toast({
+        title: "Stock not found",
+        description: `Could not find data for ticker: ${ticker}`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (!selectedStocks.includes(ticker)) {
-      setSelectedStocks([...selectedStocks, ticker]);
+      setSelectedStocks(prev => [...prev, ticker]);
+      toast({
+        title: "Stock Added",
+        description: `${stockData.name} (${ticker}) has been added to analysis`,
+      });
     }
     setSearchQuery('');
     setSearchResults([]);
@@ -59,6 +75,12 @@ const StockAnalysis: React.FC = () => {
     // Update URL with the new symbol
     if (selectedStocks.length === 0) {
       navigate(`/analysis?symbol=${ticker}`);
+    }
+  };
+  
+  const addStockBySearch = () => {
+    if (searchQuery.trim() !== '') {
+      addStockToAnalysis(searchQuery.trim().toUpperCase());
     }
   };
   
@@ -256,6 +278,11 @@ const StockAnalysis: React.FC = () => {
                   onChange={handleSearch}
                   onFocus={() => setShowResults(true)}
                   onBlur={() => setTimeout(() => setShowResults(false), 200)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      addStockBySearch();
+                    }
+                  }}
                 />
               </div>
               
@@ -280,9 +307,9 @@ const StockAnalysis: React.FC = () => {
               )}
             </div>
             
-            <Button className="whitespace-nowrap" onClick={() => setSearchResults(searchStocks(''))}>
+            <Button className="whitespace-nowrap" onClick={addStockBySearch}>
               <PlusCircle className="h-4 w-4 mr-2" />
-              Add Another Stock
+              Add Stock
             </Button>
           </div>
           

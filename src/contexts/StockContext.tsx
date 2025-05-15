@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 // Mock stock data
@@ -301,7 +300,53 @@ export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [portfolio]);
   
   const getStockData = (ticker: string) => {
-    return stockData[ticker] || null;
+    // First try to get from main stockData
+    if (stockData[ticker]) {
+      return stockData[ticker];
+    }
+    
+    // If not found, check Indian stocks
+    const indianStock = INDIAN_STOCKS.find(stock => stock.ticker === ticker);
+    if (indianStock) {
+      return indianStock;
+    }
+    
+    // If not found, check international stocks
+    const internationalStock = INTERNATIONAL_STOCKS.find(stock => stock.ticker === ticker);
+    if (internationalStock) {
+      return internationalStock;
+    }
+    
+    // If not found anywhere, generate a basic placeholder stock
+    if (ticker && ticker.length > 0) {
+      // Generate mock data for stocks not in our predefined lists
+      const generatedStock: Stock = {
+        name: `${ticker} Corporation`,
+        ticker: ticker,
+        price: 100 + Math.random() * 200,
+        change: Math.random() * 10 - 5,
+        changePercent: Math.random() * 5 - 2.5,
+        marketCap: `${Math.floor(Math.random() * 500)}B`,
+        volume: `${Math.floor(Math.random() * 50)}M`,
+        peRatio: 15 + Math.random() * 30,
+        yearHigh: 200 + Math.random() * 300,
+        yearLow: 50 + Math.random() * 100,
+        history: Array.from({ length: 365 }, (_, i) => ({
+          date: new Date(Date.now() - (365 - i) * 86400000).toISOString().split('T')[0],
+          close: 100 + Math.sin(i / 20) * 30 + Math.random() * 40
+        }))
+      };
+      
+      // Add the generated stock to our stockData
+      setStockData(prevData => ({
+        ...prevData,
+        [ticker]: generatedStock
+      }));
+      
+      return generatedStock;
+    }
+    
+    return null;
   };
   
   const searchStocks = (query: string) => {

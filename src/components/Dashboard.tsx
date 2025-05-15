@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useStock } from '@/contexts/StockContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { ArrowRight, TrendingUp, BookMarked, Newspaper } from 'lucide-react';
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const { trendingStocks, news } = useStock();
+  const navigate = useNavigate();
 
   // Get recent news
   const recentNews = news.slice(0, 3);
@@ -39,6 +40,11 @@ const Dashboard: React.FC = () => {
     { name: 'Consumer', value: -0.5, color: "#ff4d4f" },
     { name: 'Energy', value: -1.2, color: "#ff4d4f" },
   ];
+
+  // Handle stock click to navigate to analysis page
+  const handleStockClick = (ticker: string) => {
+    navigate(`/analysis?symbol=${ticker}`);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -219,7 +225,11 @@ const Dashboard: React.FC = () => {
           <CardContent>
             <div className="space-y-3">
               {trendingStocks.international.slice(0, 5).map((stock, index) => (
-                <div key={index} className="flex items-center justify-between hover:bg-accent/10 p-2 rounded-md">
+                <div 
+                  key={index} 
+                  className="flex items-center justify-between hover:bg-accent/10 p-2 rounded-md cursor-pointer"
+                  onClick={() => handleStockClick(stock.ticker)}
+                >
                   <div>
                     <div className="font-medium">{stock.ticker}</div>
                     <div className="text-sm text-muted-foreground">{stock.name}</div>
